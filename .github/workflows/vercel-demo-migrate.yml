@@ -1,0 +1,42 @@
+name: Migrate Horilla demo database
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# There must be only one schema migration runner for this demo database.
+concurrency:
+  group: horilla-demo-database-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout selected branch
+        uses: actions/checkout@v4
+
+      - name: Check demo database secret exists
+        env:
+          DATABASE_URL: ${{ secrets.HORILLA_DEMO_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo 'Configure the HORILLA_DEMO_DATABASE_URL repository secret first.' >&2
+            exit 1
+          fi
+
+      - name: Build the matching Horilla container
+        run: docker build --file Dockerfile.vercel --tag horilla-demo-migrate .
+
+      - name: Apply database migrations (manual, one-off)
+        env:
+          DATABASE_URL: ${{ secrets.HORILLA_DEMO_DATABASE_URL }}
+        run: |
+          docker run --rm --entrypoint python \
+            --env DATABASE_URL \
+            --env DEBUG=True \
+            --env SECRET_KEY=ci-migrations-only-never-used-for-login \
+            horilla-demo-migrate manage.py migrate --noinput
