@@ -18,3 +18,11 @@ Examples:
     INSTALLED_APPS += ["client_portal"]
     MIDDLEWARE += ["client_portal.middleware.ClientTrackingMiddleware"]
 """
+
+import os
+
+from .base import DATABASES
+
+if os.environ.get("VERCEL") == "1" and os.environ.get("DATABASE_URL"):
+    DATABASES["default"]["CONN_MAX_AGE"] = 60
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
