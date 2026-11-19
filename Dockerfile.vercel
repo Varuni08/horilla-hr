@@ -1,0 +1,27 @@
+# Experimental, fictional-data-only Horilla deployment for Vercel's Container runtime.
+# Keep this release tag aligned with the code in the stable 2.0 branch.
+# The official image supplies the Python dependencies and system libraries.
+FROM horilla/horilla-hr:2.4.0
+
+WORKDIR /app
+
+# Overlay this fork's source, including Vercel-specific changes, on the
+# matching published release image. .dockerignore excludes local secrets.
+USER root
+COPY --chown=appuser:appuser . /app
+RUN mkdir -p /app/staticfiles && chown appuser:appuser /app/staticfiles
+USER appuser
+
+# Vercel's runtime filesystem is read-only. Prebuild static assets in the image
+# rather than calling collectstatic when each request-serving instance starts.
+# These placeholder credentials are used ONLY during image build, with DEBUG on.
+RUN DEBUG=True SECRET_KEY=vercel-static-build-only python manage.py collectstatic --noinput
+
+# The upstream entrypoint performs migrations and writes a secret key to disk.
+# Neither is safe on a stateless, automatically scaled request server.
+# Run migrations separately via the manual GitHub Actions workflow.
+ENTRYPOINT []
+HEALTHCHECK NONE
+
+# Vercel supplies PORT; use 8000 when running this image elsewhere.
+CMD ["sh", "-c", "exec gunicorn horilla.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 4 --timeout 120"]
