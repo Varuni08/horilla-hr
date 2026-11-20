@@ -115,6 +115,11 @@ jobs:
             exit 1
           fi
 
+          # Tag the built image so Trivy scans by a valid local image name.
+          # docker compose images -q outputs a 64-hex image ID, not a repository name.
+          docker image tag "$IMAGE" horilla-ci-scan:latest
+          IMAGE="horilla-ci-scan:latest"
+
           # Report HIGH and CRITICAL so a reviewer sees the full picture...
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
